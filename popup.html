@@ -49,17 +49,9 @@
           let chatlogsEles = [];
 
           function scrollChat() {
-		      /*$(".nano").nanoScroller();
+		      $(".nano").nanoScroller();
               if (lockedToBottom) {
 		          $(".nano").nanoScroller({scroll:'bottom'});
-                  }*/
-
-              if (lockedToBottom) {
-	              if ((parseInt($('#messagebuffer').prop('scrollHeight')) - parseInt($('#messagebuffer').prop('scrollTop')) - parseInt($('#messagebuffer').height())) < 350 || parseInt($('#messagebuffer').prop('scrollHeight')) < 2500) { 
-		              setTimeout(function() {
-				          $('#messagebuffer').prop('scrollTop', $('#messagebuffer').prop('scrollHeight'));
-		              }, 20);
-	              }
               }
           }
 
