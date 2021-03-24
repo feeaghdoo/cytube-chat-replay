@@ -350,7 +350,7 @@
                       }
                   }
                   
-                  let chatlogLineEle = formatChatMessage(chatlogLine, { author: chatlogEles[i].querySelector(".username").innerText });
+                  let chatlogLineEle = formatChatMessage(chatlogLine, { author: chatlogEles[i-1]?.querySelector(".username")?.innerText });
                   chatlogLineEle.hidden = false;
                   chatlogDisplayEle.insertBefore(chatlogLineEle, chatlogEles[i]);
                   chatlogEles = [...chatlogEles.slice(0,i), chatlogLineEle, ...chatlogEles.slice(i)];
@@ -436,9 +436,9 @@
       <section id="mainpage">
         <div id="chatwrap">
           <div id="chatheader">
-            <input class="play-control" type="button" id="seekback" value="&#x23EA;&#xfe0e;"></input>
-            <input class="play-control pulse" type="button" id="playpause" value="&#x25B6;&#xfe0e;"></input>
-            <input class="play-control" type="button" id="seekforward" value="&#x23E9;&#xfe0e;"></input>
+            <input class="play-control" type="button" id="seekback" value="&#x23EA;&#xFE0E;"></input>
+            <input class="play-control pulse" type="button" id="playpause" value="&#x25B6;&#xFE0E;"></input>
+            <input class="play-control" type="button" id="seekforward" value="&#x23E9;&#xFE0E;"></input>
             <span id="timedisplay" title="0 is estimated video start">[00:00:00]</span>
             <input type="range" id="seek" title="Orange on bottom is estimated chatlog, blue-green on top is estimated video"></input>
           </div>

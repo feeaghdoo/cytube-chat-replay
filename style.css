@@ -1378,6 +1378,7 @@ html {
   background: transparent;
   color: white;
   border: 0;
+  font-family: "Segoe UI Symbol", sans-serif;
 }
 #seek {
   flex-grow: 1;
