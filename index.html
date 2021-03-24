@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Test</title>
+    <meta charset="utf-8" />
+    <script>
+      var users = null;
+      var chatlog = null;
+      var emotes = null;
+      var soundEmotes = null;
+      var username = null;
+      var playlistDuration = 0;
+      
+      let emotesFetchPromise = window.fetch('emotes.json');
+      let usersFetchPromise = window.fetch('users.json');
+      //let soundEmotesFetchPromise = window.fetch('https://spreadsheets.google.com/feeds/list/1KmHlAfiQza9vZrBSvsfWrzdyMP9u5KgQG6e5DWNwkow/13/public/values?alt=json');
+      let soundEmotesFetchPromise = new Promise(resolve => { resolve({json: () => new Promise(resolve2 => { resolve2({feed:{entry:[]}})})})});
+      let emotesLoadPromise = null;
+      let usersLoadPromise = null;
+      let soundEmotesLoadPromise = null;
+      let chatlogInputted = false;
+      let playlistDurationInputted = false;
+      let usernameInputted = false;
+
+      function populateSoundEmotes(result) {
+	      let temp2 = {};
+		  let entries = result.feed.entry;
+		  entries.forEach(function(value, index) {
+			  temp2[value.gsx$command.$t] = value.gsx$audio.$t;
+		  });
+		  temp2["pp_user_updated"] = "https://cdn.discordapp.com/attachments/538902403366518795/591840069070094349/user_updated.mp3";
+		  temp2["pp_over_100"] = "https://cdn.discordapp.com/attachments/538902403366518795/591840067719528468/target_acquired.mp3";
+		  temp2["pp_over_300"] = "https://cdn.discordapp.com/attachments/538902403366518795/591840066490335302/over_300.mp3";
+		  temp2["pp_under_100"] = "https://cdn.discordapp.com/attachments/538902403366518795/591840064485720107/under_100.mp3";
+		  temp2["pp_lock"] = "https://cdn.discordapp.com/attachments/538902403366518795/591840053412626443/locku_shimasu.mp3";
+		  temp2["pp_lethal"] = "https://cdn.discordapp.com/attachments/538902403366518795/591840060111061017/lethal_eliminator.mp3";
+		  temp2["pp_non_lethal"] = "https://cdn.discordapp.com/attachments/538902403366518795/591840061088202768/non_lethal_paralyzer.mp3";
+		  temp2["pp_destroy"] = "https://cdn.discordapp.com/attachments/538902403366518795/591840063491538963/detroy_decomposer.mp3";
+		  return temp2;
+      }
+
+      var stringToColour = function(str) {
+          for (var i = 0, hash = 0; i < str.length; hash = str.charCodeAt(i++) + ((hash << 5) - hash));
+          for (var i = 0, colour = "#"; i < 3; colour += ("00" + ((hash >> i++ * 8) & 0xFF).toString(16)).slice(-2));
+          return colour;
+      }
+
+      function populateUsers(data) {
+          users = new Map();
+          data.forEach(user => {
+              let userColor = user.text;
+              if (!userColor || !userColor.match(/\#[0-9a-fA-F]{6}/)) {
+                  userColor = stringToColour(user.name);
+              }
+              users.set(user.name, { image: user.image, color: userColor });
+          });
+          return users;
+      }
+      
+      document.addEventListener("DOMContentLoaded", () => {
+          const chatlogInput = document.querySelector("#chatlog-input");
+          const playlistDurationInput = document.querySelector("#playlist-duration-input");
+          const usernameInput = document.querySelector("#username-input");
+          const launchChatReplayInput = document.querySelector("#launch-chat-replay-input");
+          
+          chatlogInput.addEventListener("change", () => {
+              if(chatlogInput.files.length > 0) {
+                  const reader = new FileReader();
+                  let readerLoadPromise = new Promise((resolve, reject) => {
+                      reader.addEventListener("load", resolve);
+                  });
+
+                  Promise.all([emotesFetchPromise, readerLoadPromise, soundEmotesFetchPromise, usersFetchPromise]).then(vals => {
+                      if (emotesLoadPromise === null) {
+                          emotesLoadPromise = vals[0].json();
+                      }
+                      if (soundEmotesLoadPromise === null) {
+                          soundEmotesLoadPromise = vals[2].json();
+                      }
+                      if (usersLoadPromise === null) {
+                          usersLoadPromise = vals[3].json();
+                      }
+                      chatlog = vals[1].target.result;
+                      Promise.all([emotesLoadPromise, soundEmotesLoadPromise, usersLoadPromise]).then(vals => {
+                          emotes = Object.fromEntries(vals[0].map(emote => [emote.name.slice(1,-1), emote.image]));
+                          soundEmotes = populateSoundEmotes(vals[1]);
+                          users = populateUsers(vals[2]);
+                          let chatlogLineRe = /\[([^\]]+?)\] \<([^\>]+?)\> (.+)/;
+                          chatlog = chatlog.split('\n');
+                          
+                          chatlog = chatlog.map(chatlogLine => {
+                              let chatlogLineObj = chatlogLine.match(chatlogLineRe).slice(1,4);
+                              chatlogLineObj = { timestamp: new Date(chatlogLineObj[0].substr(4)),
+                                                 author: chatlogLineObj[1],
+                                                 message: chatlogLineObj[2] };
+                              if (chatlogLineObj.author.match(/\.spoiler$/)) {
+                                  chatlogLineObj.author = chatlogLineObj.author.substr(0, chatlogLineObj.author.indexOf('.spoiler'));
+                                  chatlogLineObj.jankyOldSpoiler = true;
+                              }
+                              if (chatlogLineObj.author.match(/\.greentext$/)) {
+                                  chatlogLineObj.author = chatlogLineObj.author.substr(0, chatlogLineObj.author.indexOf('.greentext'));
+                                  chatlogLineObj.jankyOldGreentext = true;
+                              }
+                              if (!users.has(chatlogLineObj.author)) {
+                                  users.set(chatlogLineObj.author, { color: stringToColour(chatlogLineObj.author) });
+                              }
+                              return chatlogLineObj;
+                          });
+                          
+                          chatlogInputted = true;
+                          if (playlistDurationInputted && chatlogInputted && usernameInputted) {
+                              launchChatReplayInput.removeAttribute("disabled");
+                          }
+                      });
+                  });
+                  
+                  
+                  reader.readAsText(chatlogInput.files[0]);
+              }
+          });
+
+          playlistDurationInput.addEventListener("input", () => {
+              //if is valid number input
+              if (playlistDurationInput.value != '') {
+                  playlistDuration = Math.ceil(parseFloat(playlistDurationInput.value));
+                  playlistDurationInputted = true;
+                  if (playlistDurationInputted && chatlogInputted && usernameInputted) {
+                      launchChatReplayInput.removeAttribute("disabled");
+                  }
+              } else {
+                  playlistDurationInputted = false;
+                  launchChatReplayInput.setAttribute("disabled", "");
+              }
+          });
+
+          usernameInput.addEventListener("input", () => {
+              //if is valid number input
+              if (usernameInput.value != '') {
+                  username = usernameInput.value;
+                  usernameInputted = true;
+                  if (playlistDurationInputted && chatlogInputted && usernameInputted) {
+                      launchChatReplayInput.removeAttribute("disabled");
+                  }
+              } else {
+                  usernameInputted = false;
+                  launchChatReplayInput.setAttribute("disabled", "");
+              }
+          });
+
+          launchChatReplayInput.addEventListener("click", () => {
+              if (!users.has(username)) {
+                  let userColor = null;
+                  if (!userColor || !userColor.match(/\#[0-9a-fA-F]{6}/)) {
+                      userColor = stringToColour(username);
+                  }
+                  users.set(username, { color: userColor });
+              }
+              
+              window.open("popup.html", "popup", "height=1080,width=320,top=0,left=1610");
+          });
+      });
+    </script>
+  </head>
+  <body>
+    <div>
+      <label for="playlist-duration-input">Chatlog file:</label>
+      <input type="file" id="chatlog-input" />
+    </div>
+    <div>
+      <label for="playlist-duration-input">Playlist duration (in minutes):</label>
+      <input type="number" id="playlist-duration-input" step="any" />
+    </div>
+    <div>
+      <label for="playlist-duration-input">Username:</label>
+      <input type="text" id="username-input" />
+    </div>
+    <div>
+      <input type="button" id="launch-chat-replay-input" value="Launch" disabled />
+    </div>
+  </body>
+</html>

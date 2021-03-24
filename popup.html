@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Popup</title>
+    <meta charset="utf-8" />
+    <script src="jquery-1.11.0.min.js"></script>
+    <script src="utils.js"></script>
+    <script>
+      let chatlog = window.opener.chatlog;
+      let emotes = window.opener.emotes;
+      let soundEmotes = window.opener.soundEmotes;
+      let users = window.opener.users;
+      let playlistDuration = window.opener.playlistDuration;
+      let username = window.opener.username;
+      let selectedPopover = null;
+      let emoteTable = false;
+
+      function timestampDisplay(timestamp, positiveMark) {
+          let hours = (timestamp > 0 ? positiveMark : '-') + Math.floor(Math.abs(timestamp)/3600).toString().padStart(2, '0');
+          let minutes = Math.floor(Math.abs(timestamp)%3600/60).toString().padStart(2, '0');
+          let seconds = Math.floor(Math.abs(timestamp%60)).toString().padStart(2, '0');
+          return `${hours}:${minutes}:${seconds}`;
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+          const chatlogDisplayEle = document.querySelector("#messagebuffer");
+          const chatHeaderEle = document.querySelector("#chatheader");
+          const timeDisplayEle = document.querySelector("#timedisplay");
+          const chatSeekEle = document.querySelector("#seek");
+          const playPauseEle = document.querySelector("#playpause");
+          const seekBackEle = document.querySelector("#seekback");
+          const seekForwardEle = document.querySelector("#seekforward");
+          const audioToggleEle = document.querySelector("#AudioNoticeSqueeToggle");
+          const bodyEle = document.querySelector("body");
+          const chatLineEle = document.querySelector("#chatline");
+          const emoteListEle = $("#emote-data-field");
+          const seekBackgroundSvg = new DOMParser().parseFromString('<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg width="100" height="100" viewbox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect id="playlist" fill="#7FFFD4" x="20" y="0" width="60" height="50" /><rect id="chat" fill="#FFAA05" x="60" y="50" width="40" height="50" /></svg>', 'application/xml');
+          const seekBackgroundPlaylistEle = seekBackgroundSvg.querySelector("#playlist");
+          const seekBackgroundChatEle = seekBackgroundSvg.querySelector("#chat");
+          const chatlogEmoteRe = /\:([^:\s]+?)\:/g;
+          const brokenImgSrcRe = /img src\=\"http(s?):([^\/])/g;
+
+          let isPlaying = false;
+          let isSeeking = false;
+          let audioEnabled = true;
+          let updateVisibleInterval = null;
+          let currentTime = 0;
+          let lockedToBottom = true;
+          let chatlogsEles = [];
+
+          function scrollChat() {
+		      /*$(".nano").nanoScroller();
+              if (lockedToBottom) {
+		          $(".nano").nanoScroller({scroll:'bottom'});
+                  }*/
+
+              if (lockedToBottom) {
+	              if ((parseInt($('#messagebuffer').prop('scrollHeight')) - parseInt($('#messagebuffer').prop('scrollTop')) - parseInt($('#messagebuffer').height())) < 350 || parseInt($('#messagebuffer').prop('scrollHeight')) < 2500) { 
+		              setTimeout(function() {
+				          $('#messagebuffer').prop('scrollTop', $('#messagebuffer').prop('scrollHeight'));
+		              }, 20);
+	              }
+              }
+          }
+
+          //initialize scrollbars and update scroll pos and scrollbars when needed
+          window.setTimeout(() => { $(".nano").nanoScroller(); }, 500);
+          $(window).resize(function() {$(".nano").nanoScroller();});
+          $(".nano").on("scrollend", () => {
+              lockedToBottom = true;
+          });
+          $(".nano").on("update", () => {
+              if (lockedToBottom) {
+                  let scrolledToBottom = chatlogDisplayEle.scrollHeight - Math.abs(chatlogDisplayEle.scrollTop) === chatlogDisplayEle.clientHeight;
+                  if (!scrolledToBottom) {
+                      lockedToBottom = false;
+                  }
+              }
+          });
+          
+          function appendEmote(elem) {
+	          let text = chatLineEle.value;
+	          let index = text.lastIndexOf(" ");
+	          chatLineEle.value = "";
+	          chatLineEle.value = text.substr(0, index + 1) + elem.attr('data-value') + " ";
+	          chatLineEle.focus();
+          }
+
+          chatlogDisplayEle.addEventListener("click", (e) => {
+              if (e.target.classList.contains("spText")) {
+                  e.target.classList.remove("spText");
+              }
+              if (e.target.classList.contains("imgContainer")) {
+                  if ($(e.target).find('img').css('filter') != 'blur(0px)') {
+				      $(e.target).find('img').css('filter', 'blur(0px)');
+				      $(e.target).removeClass('imgContainer');
+				      $(e.target).attr('title', '');
+				      var elem = $(e.target).find('a');
+				      setTimeout(function() {
+					      elem.attr('href', elem.find('img').attr('src'));
+				      }, 1000)
+			      }
+              }
+          });
+
+          
+          var emoteSelectSubmit = function(e) {
+	          if (selectedPopover) {
+		          e.preventDefault();
+		          let activeSelected = $('tr.active');
+			      appendEmote(activeSelected);
+			      emoteListEle.hide();
+			      selectedPopover = null;
+			      emoteTable = false;
+	          }
+	          return false;
+          };
+
+          var emoteKeyLookup = {
+	          13: function(e) {
+		          emoteSelectSubmit(e);
+	          },
+	          40: function(e) {
+		          e.preventDefault();
+		          if (selectedPopover) {
+			          selectedPopover.removeClass('active');
+			          next = selectedPopover.next();
+			          if (next.length > 0) {
+				          selectedPopover = next.addClass('active');
+			          } else {
+				          selectedPopover = $('.emote-table tbody').children().first().addClass('active');
+			          }
+		          } else {
+			          selectedPopover = $('.emote-table tbody').children().first().addClass('active');
+		          }
+		          let emoteTop = $('.emote-table-wrapper').scrollTop();
+		          let emoteActive = emoteTop + $('.emote-table-wrapper').find('.active').position().top;
+		          let emoteHeight = $('.emote-table-wrapper').height();
+		          if (emoteActive > (emoteTop + emoteHeight)-35) {
+			          $('.emote-table-wrapper').scrollTop(emoteTop+35);
+		          }
+		          if (emoteActive < (emoteTop)) {
+			          $('.emote-table-wrapper').scrollTop(emoteActive);	
+		          }
+	          },
+	          38: function(e) {
+		          e.preventDefault();
+		          if (selectedPopover) {
+			          selectedPopover.removeClass('active');
+			          next = selectedPopover.prev();
+			          if (next.length > 0) {
+				          selectedPopover = next.addClass('active');
+			          } else {
+				          selectedPopover = $('.emote-table tbody').children().last().addClass('active');
+			          }
+		          } else {
+			          selectedPopover = $('.emote-table tbody').children().last().addClass('active');
+		          }
+		          let emoteTop = $('.emote-table-wrapper').scrollTop();
+		          let emoteActive = emoteTop + $('.emote-table-wrapper').find('.active').position().top;
+		          let emoteHeight = $('.emote-table-wrapper').height();
+		          if (emoteActive > (emoteTop + emoteHeight)-10) {
+			          $('.emote-table-wrapper').scrollTop(emoteActive);
+		          }
+		          if (emoteActive < (emoteTop)) {
+			          $('.emote-table-wrapper').scrollTop(emoteActive);	
+		          }
+	          },
+	          9: function(e) {
+		          emoteSelectSubmit(e);
+	          }
+          };
+
+          emoteListEle[0].addEventListener("click", (e) => {          
+		      let activeSelected = $(e.target).closest('tr');
+			  appendEmote(activeSelected);
+			  emoteListEle.hide();
+			  emoteTable = false;
+	      });
+
+          function updateVisibleChatlogs() {
+              let i = 0;
+              for (i = 0; i < chatlogEles.length; i++) {
+                  if (chatlogEles[i].attributes.getNamedItem("data-timestamp").value > currentTime) {
+                      chatlogEles[i].hidden=true;
+                  } else {
+                      if (chatlogEles[i].hidden && !isSeeking && audioEnabled) {
+                          let soundEmote = chatlogEles[i].querySelector(".semote");
+                          if (soundEmote && soundEmotes.hasOwnProperty(soundEmote.getAttribute("data-value"))) {
+                              let audioEle = document.createElement('audio');
+                              audioEle.setAttribute("preload", "auto");
+                              audioEle.innerHTML = `<source src="${soundEmotes[soundEmote.getAttribute("data-value")]}" type="audio/ogg" />`;
+                              audioEle.play();
+                          }
+                          let tts = chatlogEles[i].querySelector(".tts");
+                          if (tts && tts.innerText.length && 'speechSynthesis' in window) {
+		                      let msg = new SpeechSynthesisUtterance(tts.innerText);
+		                      window.speechSynthesis.speak(msg);
+                          }
+                      }
+                      chatlogEles[i].hidden=false;
+                  }
+              }
+              //update scroll pos
+              scrollChat();
+          }
+
+          function formatChatMessage(data, last) {
+              let chatlogLineEle = document.createElement("div");
+              chatlogLineEle.classList.add("chat-msg-log", "parsedm");
+              chatlogLineEle.setAttribute("data-timestamp", data.timestamp);
+              let chatlogMessageEle = document.createElement("span");
+              let chatlogTimestampEle = document.createElement("span");
+              let sameAuthor = data.author === last?.author;
+              chatlogTimestampEle.classList.add("timestamp");
+              chatlogTimestampEle.innerText = `[${timestampDisplay(data.timestamp, "")}]`;
+              chatlogMessageEle.innerText = `${data?.message}`;
+              //FIXME: sanitize input
+              //chatlogMessageEle.innerHTML = chatlogMessageEle.innerText.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+              chatlogMessageEle.innerHTML = chatlogMessageEle.innerText.replaceAll(chatlogEmoteRe, (matchText, emoteName) => {
+                  if (emotes.hasOwnProperty(emoteName)) {
+                      return `<img class="channel-emote" src="${emotes[emoteName]}" height="110px" width="110px" loading="lazy" />`;
+                  } else {
+                      return matchText;
+                  }
+              });
+              chatlogMessageEle.innerHTML = chatlogMessageEle.innerHTML.replaceAll(brokenImgSrcRe, 'img src="http$1://$2');
+              if (data.jankyOldSpoiler) {
+                  chatlogMessageEle.innerHTML = `<span class="spoiler">${chatlogMessageEle.innerHTML}</span>`;
+              }
+              if (data.jankyOldGreentext) {
+                  chatlogMessageEle.innerHTML = `<span class="greentext">${chatlogMessageEle.innerHTML}</span>`;
+              }
+
+              chatlogLineEle.hidden=true;
+              chatlogLineEle.appendChild(chatlogTimestampEle);
+              if (!sameAuthor) {
+                  const chatlogAuthorEle1 = document.createElement("span");
+                  const chatlogAuthorEle2 = document.createElement("strong");
+                  chatlogAuthorEle2.classList.add('username');
+                  chatlogAuthorEle2.style.color = users.get(data.author).color;
+                  chatlogAuthorEle2.innerText = data.author;
+                  if (users.get(data.author).image) {
+                      const chatlogAvatarEle = document.createElement("img");
+                      chatlogAvatarEle.setAttribute("src", users.get(data.author).image);
+                      chatlogAvatarEle.classList.add("chat-avatar", "chat-avatar_small");
+                      chatlogAuthorEle1.appendChild(chatlogAvatarEle);
+                  }
+                  chatlogAuthorEle1.appendChild(chatlogAuthorEle2);
+                  chatlogLineEle.appendChild(chatlogAuthorEle1);
+              }
+              chatlogLineEle.appendChild(chatlogMessageEle);
+              return chatlogLineEle;
+          }
+
+          chatSeekEle.addEventListener("input", () => {
+              isSeeking = true;
+              timeDisplayEle.innerText = timestampDisplay(chatSeekEle.value, "+"); 
+          });
+
+          chatSeekEle.addEventListener("change", () => {
+              currentTime = parseInt(chatSeekEle.value);
+              lockedToBottom = true;
+              updateVisibleChatlogs();
+              isSeeking = false;
+          });
+
+          let chatStartTime = 0;
+          let chatEndTime = (chatlog[chatlog.length-1].timestamp - chatlog[0].timestamp)/1000;
+          let streamEndTime = chatEndTime;
+          let thanksForStreamTimes = [];
+          //get median thanks for stream to try to guess end of stream
+          let thanksRegex = new RegExp(/thank.+stream/, "i");
+          for (let i = 0; i < chatlog.length; i++) {
+              if (chatlog[i].message.match(thanksRegex)) {
+                  thanksForStreamTimes.push(chatlog[i].timestamp);
+              }
+          }
+          if (thanksForStreamTimes.length > 0) {
+              streamEndTime = (thanksForStreamTimes[Math.floor(thanksForStreamTimes.length/2)] - chatlog[0].timestamp)/1000;
+          }
+          let streamStartTime = streamEndTime - playlistDuration*60;
+          //refiddle numbers so stream start time is 0 and others are relative to it
+          chatStartTime = chatStartTime - streamStartTime;
+          chatEndTime = chatEndTime - streamStartTime;
+          streamEndTime = streamEndTime - streamStartTime;
+          streamStartTime = 0;
+
+          let playbackStartTime = Math.min(chatStartTime, streamStartTime);
+          let playbackEndTime = Math.max(chatEndTime, streamEndTime);
+          let playbackDuration = playbackEndTime - playbackStartTime;
+          
+          timeDisplayEle.innerText = timestampDisplay(currentTime, "+");
+
+          chatSeekEle.setAttribute("min", playbackStartTime);
+          chatSeekEle.setAttribute("max", playbackEndTime);
+
+          seekBackgroundChatEle.setAttribute("width", 100*(chatEndTime-chatStartTime)/playbackDuration);
+          seekBackgroundChatEle.setAttribute("x", 100*(chatStartTime-playbackStartTime)/playbackDuration);
+          seekBackgroundPlaylistEle.setAttribute("width", 100*(streamEndTime-streamStartTime)/playbackDuration);
+          seekBackgroundPlaylistEle.setAttribute("x", 100*(streamStartTime-playbackStartTime)/playbackDuration);
+          chatSeekEle.style.backgroundImage = `url(data:image/svg+xml;base64,${btoa(new XMLSerializer().serializeToString(seekBackgroundSvg.documentElement))})`;
+
+          playPauseEle.addEventListener("click", () => {
+              if (isPlaying) {
+                  isPlaying = false;
+                  playPauseEle.classList.add("pulse");
+                  playPauseEle.setAttribute("value", "\u25B6\ufE0E");
+                  
+              } else {
+                  isPlaying  = true;
+                  playPauseEle.classList.remove("pulse");
+                  playPauseEle.setAttribute("value", "\u23F8\uFE0E");
+              }
+          });
+          
+          seekBackEle.addEventListener("click", () => {
+              currentTime = Math.max(currentTime-15, playbackStartTime);
+              timeDisplayEle.innerText = timestampDisplay(currentTime, "+"); 
+              lockedToBottom = true;
+              isSeeking = true;
+              updateVisibleChatlogs();
+              isSeeking = false;
+          });
+          
+          seekForwardEle.addEventListener("click", () => {
+              currentTime = Math.min(currentTime+15, playbackEndTime);
+              timeDisplayEle.innerText = timestampDisplay(currentTime, "+"); 
+              lockedToBottom = true;
+              isSeeking = true;
+              updateVisibleChatlogs();
+              isSeeking = false;
+          });
+
+          audioToggleEle.addEventListener("click", () => {
+              audioEnabled = !audioEnabled;
+              audioToggleEle.classList.toggle("label-default");
+              audioToggleEle.classList.toggle("label-info");
+          });
+
+          bodyEle.addEventListener("keydown", e => {
+              if (emoteTable) {
+		          e.stopImmediatePropagation();
+		          if (emoteKeyLookup.hasOwnProperty(e.which)) {
+			          emoteKeyLookup[e.which](e);
+		          }
+              } else if (e.target == chatLineEle && e.key === "Enter") {
+                  let chatlogLine = {
+                      author: username,
+                      message: chatLineEle.value,
+                      timestamp: currentTime
+                  };
+
+                  let i = 0;
+                  for (i = 0; i < chatlogEles.length; i++) {
+                      if (chatlogEles[i].attributes.getNamedItem("data-timestamp").value > currentTime) {
+                          break;
+                      }
+                  }
+                  
+                  let chatlogLineEle = formatChatMessage(chatlogLine, { author: chatlogEles[i].querySelector(".username").innerText });
+                  chatlogLineEle.hidden = false;
+                  chatlogDisplayEle.insertBefore(chatlogLineEle, chatlogEles[i]);
+                  chatlogEles = [...chatlogEles.slice(0,i), chatlogLineEle, ...chatlogEles.slice(i)];
+                  
+                  chatLineEle.value = "";
+                  
+                  //update scroll pos
+		          scrollChat();
+              }
+          });
+
+          chatLineEle.addEventListener("input", () => {
+		      let index = $('#chatline').val().lastIndexOf(" ");
+		      let chatText = $('#chatline').val().split(" ");
+		      let lastText = $('#chatline').val().substr(index + 1);
+		      let chat = $(this);
+		      let firstText = "";
+		      if (chatText.length > 1) {
+			      firstText = chatText[0];
+		      }
+              let emoteArray = Object.entries(emotes).map(e => ({ name: ":" + e[0] + ":", image: e[1]}));
+              
+			  searchEnabled = false;
+			  if (lastText.substr(0, 1) == ':' && lastText.length > 2) {
+				  emoteListEle[0].innerHTML = "";
+				  let emoteText = lastText.substr(1, lastText.length).toLowerCase();
+				  let filteredEmote = emoteArray.filter(emote => (emote.name.toLowerCase().indexOf(emoteText) > -1));
+				  if (lastText.substr(lastText.length - 1) == ':' || filteredEmote.length == 0) {
+					  emoteListEle.hide();
+					  selectedPopover = null;
+					  emoteTable = false;
+				  } else {
+					  let emoteString = "<div class='emote-table-wrapper'><table class='table table-sm table-hover emote-table'><tbody>";
+					  filteredEmote.forEach(function(value, index) {
+						  let active = (index == 0) ? "active" : "";
+						  emoteString += "<tr class='selectEmote " + active + "' data-value='" + value.name + "'>";
+						  emoteString += "<td width='20%'><img class='smol-emote' src='" + value.image + "'></td>";
+						  emoteString += "<td width='80%'>" + value.name + "</td>";
+						  emoteString += "</tr>";
+					  })
+					  emoteString += "</tbody></table></div>";
+					  emoteListEle[0].innerHTML = emoteString;
+					  selectedPopover = $('tr.active');
+					  emoteTable = true;
+					  emoteListEle.show();
+				  }
+              } else {
+				  emoteListEle.hide();
+				  selectedPopover = null;
+				  emoteTable = false;
+			  }
+          });
+
+          for (let i = 0; i < chatlog.length; i++) {
+              //update timestamp
+              let chatlogLine = Object.assign({}, chatlog[i]);
+              chatlogLine.timestamp = Math.floor((chatlogLine.timestamp - chatlog[0].timestamp)/1000 + chatStartTime);
+              let chatlogLineEle = formatChatMessage(chatlogLine, chatlog?.[i-1]);
+              chatlogDisplayEle.appendChild(chatlogLineEle);
+          }
+
+          chatlogEles = Array.from(document.querySelectorAll('.chat-msg-log'));
+
+          isSeeking=true;
+          updateVisibleChatlogs();
+          isSeeking=false;
+          
+          updateVisibleInterval = setInterval(() => {
+              if (isPlaying && !isSeeking) {
+                  updateVisibleChatlogs();
+                  currentTime = currentTime + 1;
+                  chatSeekEle.value = currentTime;
+                  timeDisplayEle.innerText = timestampDisplay(currentTime, "+");
+              }
+          }, 1000);
+      });
+    </script>
+    <link rel="stylesheet" href="style.css"></link>
+    <link rel='stylesheet' href='//maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css' />
+  </head>
+  <body class="fluid darktheme">
+    <div id="wrap">
+      <section id="mainpage">
+        <div id="chatwrap">
+          <div id="chatheader">
+            <input class="play-control" type="button" id="seekback" value="&#x23EA;&#xfe0e;"></input>
+            <input class="play-control pulse" type="button" id="playpause" value="&#x25B6;&#xfe0e;"></input>
+            <input class="play-control" type="button" id="seekforward" value="&#x23E9;&#xfe0e;"></input>
+            <span id="timedisplay" title="0 is estimated video start">[00:00:00]</span>
+            <input type="range" id="seek" title="Orange on bottom is estimated chatlog, blue-green on top is estimated video"></input>
+          </div>
+          <div class="nano">
+            <div id="messagebuffer" class="linewrap nano-content"></div>
+          </div>
+          <span id="AudioNoticeSqueeToggle" title="Toggle Emote Audio Notices" class="pointer fa fa-bell"></span>
+          <form action="javascript:void(0)">
+            <div id="emote-data-field" style="display: none;" hidden=""></div>
+            <input class="form-control" id="chatline" type="text" maxlength="320" style="" placeholder="Type here to send a message" />
+          </form>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>
