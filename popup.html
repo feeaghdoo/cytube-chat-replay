@@ -427,7 +427,7 @@
           isSeeking=false;
           
           updateVisibleInterval = setInterval(() => {
-              if (isPlaying && !isSeeking) {
+              if (isPlaying && !isSeeking && currentTime <= playbackEndTime) {
                   updateVisibleChatlogs();
                   currentTime = currentTime + 1;
                   chatSeekEle.value = currentTime;
