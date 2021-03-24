@@ -13,7 +13,6 @@
       
       let emotesFetchPromise = window.fetch('emotes.json');
       let usersFetchPromise = window.fetch('users.json');
-      //let soundEmotesFetchPromise = window.fetch('https://spreadsheets.google.com/feeds/list/1KmHlAfiQza9vZrBSvsfWrzdyMP9u5KgQG6e5DWNwkow/13/public/values?alt=json');
       let soundEmotesFetchPromise = new Promise(resolve => { resolve({json: () => new Promise(resolve2 => { resolve2({feed:{entry:[]}})})})});
       let emotesLoadPromise = null;
       let usersLoadPromise = null;
