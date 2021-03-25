@@ -302,13 +302,13 @@
           playPauseEle.addEventListener("click", () => {
               if (isPlaying) {
                   isPlaying = false;
-                  playPauseEle.classList.add("pulse");
-                  playPauseEle.setAttribute("value", "\u25B6\ufE0E");
+                  playPauseEle.classList.remove("fa-pause");
+                  playPauseEle.classList.add("pulse", "fa-play");
                   
               } else {
                   isPlaying  = true;
-                  playPauseEle.classList.remove("pulse");
-                  playPauseEle.setAttribute("value", "\u23F8\uFE0E");
+                  playPauseEle.classList.remove("pulse", "fa-play");
+                  playPauseEle.classList.add("fa-pause");
               }
           });
           
@@ -441,9 +441,9 @@
       <section id="mainpage">
         <div id="chatwrap">
           <div id="chatheader">
-            <input class="play-control" type="button" id="seekback" value="&#x23EA;&#xFE0E;"></input>
-            <input class="play-control pulse" type="button" id="playpause" value="&#x25B6;&#xFE0E;"></input>
-            <input class="play-control" type="button" id="seekforward" value="&#x23E9;&#xFE0E;"></input>
+            <button class="play-control fa fa-backward" type="button" id="seekback"></button>
+            <button class="play-control pulse fa fa-play" type="button" id="playpause"></button>
+            <button class="play-control fa fa-forward" type="button" id="seekforward"></button>
             <span id="timedisplay" title="0 is estimated video start">[00:00:00]</span>
             <input type="range" id="seek" title="Orange on bottom is estimated chatlog, blue-green on top is estimated video"></input>
           </div>
