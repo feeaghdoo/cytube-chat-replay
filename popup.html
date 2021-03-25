@@ -243,6 +243,11 @@
                   chatlogLineEle.appendChild(chatlogAuthorEle1);
               }
               chatlogLineEle.appendChild(chatlogMessageEle);
+              
+              $(chatlogLineEle).find("img").load(function () {
+                  scrollChat();
+              });
+                                   
               return chatlogLineEle;
           }
 
@@ -430,7 +435,6 @@
       });
     </script>
     <link rel="stylesheet" href="style.css"></link>
-    <link rel='stylesheet' href='//maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css' />
   </head>
   <body class="fluid darktheme">
     <div id="wrap">

@@ -1369,6 +1369,11 @@ html {
   display: flex;
   flex-flow: row nowrap;
 }
+
+@font-face {
+  font-family: "font-awesome";
+  src: url("fa-solid-900.woff2");
+}
 .play-control {
   flex-grow: 0;
   width: 30px;
@@ -1378,7 +1383,7 @@ html {
   background: transparent;
   color: white;
   border: 0;
-  font-family: "Segoe UI Symbol", sans-serif;
+  font-family: "font-awesome", sans-serif;
 }
 #seek {
   flex-grow: 1;
