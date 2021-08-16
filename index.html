@@ -14,7 +14,7 @@
       
       let emotesFetchPromise = window.fetch('emotes.json');
       let usersFetchPromise = window.fetch('users.json');
-      let soundEmotesFetchPromise = new Promise(resolve => { resolve({json: () => new Promise(resolve2 => { resolve2({feed:{entry:[]}})})})});
+      let soundEmotesFetchPromise = window.fetch('https://spreadsheet.example');
       let emotesLoadPromise = null;
       let usersLoadPromise = null;
       let soundEmotesLoadPromise = null;
@@ -70,17 +70,17 @@
                       reader.addEventListener("load", resolve);
                   });
 
-                  Promise.all([emotesFetchPromise, readerLoadPromise, soundEmotesFetchPromise, usersFetchPromise]).then(vals => {
+                  Promise.allSettled([emotesFetchPromise, readerLoadPromise, soundEmotesFetchPromise, usersFetchPromise]).then(vals => {
                       if (emotesLoadPromise === null) {
-                          emotesLoadPromise = vals[0].json();
+                          emotesLoadPromise = vals[0].value.json();
                       }
                       if (soundEmotesLoadPromise === null) {
-                          soundEmotesLoadPromise = vals[2].json();
+                          soundEmotesLoadPromise = vals[2].value.status === 200 ? vals[2].value.json() : Promise.resolve({feed:{entry:[]}});
                       }
                       if (usersLoadPromise === null) {
-                          usersLoadPromise = vals[3].json();
+                          usersLoadPromise = vals[3].value.json();
                       }
-                      chatlog = vals[1].target.result;
+                      chatlog = vals[1].value.target.result;
                       Promise.all([emotesLoadPromise, soundEmotesLoadPromise, usersLoadPromise]).then(vals => {
                           emotes = Object.fromEntries(vals[0].map(emote => [emote.name.slice(1,-1), emote.image]));
                           soundEmotes = populateSoundEmotes(vals[1]);
